@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
-  "id": "lhaventoolbox",
+  "id": "kniltoolbox",
   "version": "${version}",
-  "name": "LhavenToolbox",
+  "name": "KnilToolbox",
   "description": "",
   "authors": [],
   "contact": {},
   "license": "All-Rights-Reserved",
-  "icon": "assets/lhaventoolbox/icon.png",
+  "icon": "assets/kniltoolbox/icon.png",
   "environment": "*",
   "entrypoints": {
     "client": [
-      "fr.lhaven.lhaventoolbox.client.LhaventoolboxClient"
+      "fr.knil.kniltoolbox.client.KniltoolboxClient"
     ],
     "main": [
-      "fr.lhaven.lhaventoolbox.Lhaventoolbox"
+      "fr.knil.kniltoolbox.Kniltoolbox"
     ]
   },
   "mixins": [
-    "lhaventoolbox.mixins.json",
+    "kniltoolbox.mixins.json",
     {
-      "config": "lhaventoolbox.client.mixins.json",
+      "config": "kniltoolbox.client.mixins.json",
       "environment": "client"
     }
   ],

@@ -1,4 +1,4 @@
-package fr.lhaven.lhaventoolbox;
+package fr.knil.kniltoolbox;
 
 import com.cobblemon.mod.common.api.Priority;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
@@ -8,7 +8,7 @@ import net.fabricmc.api.ModInitializer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
-public class Lhaventoolbox implements ModInitializer {
+public class Kniltoolbox implements ModInitializer {
 
     @Override
     public void onInitialize() {

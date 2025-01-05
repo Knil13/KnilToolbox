@@ -1,8 +1,8 @@
-package fr.lhaven.lhaventoolbox.client;
+package fr.knil.kniltoolbox.client;
 
 import net.fabricmc.api.ClientModInitializer;
 
-public class LhaventoolboxClient implements ClientModInitializer {
+public class KniltoolboxClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
