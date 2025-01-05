@@ -59,13 +59,19 @@ tasks.withType(JavaCompile).configureEach {
     }
 }
 
-java {
+/*java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
 
     withSourcesJar()
+}*/
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 jar {
