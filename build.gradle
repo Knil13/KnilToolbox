@@ -87,3 +87,9 @@ publishing {
 
     }
 }
+
+tasks.withType(JavaExec).configureEach {
+    if (it.name.contains("runClient")) {
+        jvmArgs "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    }
+}

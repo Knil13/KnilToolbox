@@ -15,8 +15,10 @@ public class Kniltoolbox implements ModInitializer {
 	
     @Override
     public void onInitialize() {
-    	LOGGER.info("Lancement de myHomes");
+    	LOGGER.info("Lancement de Knil ToolBox");
 		ModCommands.registerCommands();	
+		
+		
         
     }    
 }
