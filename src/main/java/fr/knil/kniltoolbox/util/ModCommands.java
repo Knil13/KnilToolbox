@@ -152,6 +152,7 @@ public class ModCommands {
 	
 	//chargement du fichier GIFT_FILE dans la var gift_data
 	private static void loadgift() {
+		gift_data.clear();
 		if (GIFT_FILE.exists()) {	//verification que le fichier existe
             try (FileReader reader = new FileReader(GIFT_FILE)) {	
                 Type type = new TypeToken<Map<String, Map<String, Object>>>() {}.getType();
