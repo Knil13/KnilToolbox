@@ -28,9 +28,12 @@ import static net.minecraft.server.command.CommandManager.literal;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,11 +41,17 @@ import java.util.UUID;
 public class ModCommands {
 
 	private static final File DATA_DIRECTORY = new File("KnilToolbox_files"); // Répertoire des fichiers
-    private static final File GIFT_FILE = new File(DATA_DIRECTORY, "gift_file.json"); // Fichier des gifts    
+    private static final File GIFT_FILE = new File(DATA_DIRECTORY, "gift_file.json"); // Fichier des gifts 
+    private static final File PLAYER_GIFT_FILE = new File(DATA_DIRECTORY, "player_gift_file.json"); // Fichier des gifts 
+    
     private static final Gson GSON = new Gson();
     private static final Map<String, Pokemon> gift_data = new HashMap<>();
+    private final static Map<String, List<UUID>> players_gifted = new HashMap<>();
+
 
 	public static void registerCommands() {		
+		
+		loadGiftedPlayers();
 		
 		 CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> { 
 	         // commande /pokelist
@@ -93,6 +102,8 @@ public class ModCommands {
 		//Recuperation du joueur
 		ServerPlayerEntity player = context.getSource().getPlayer();
 		
+		if(!containsUUID(key,player.getUuid())) {		
+		
 		//recuperation de la team du joueur
 		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player);
 		
@@ -104,9 +115,13 @@ public class ModCommands {
 			//ajout du pokemon à la team  
 			playerParty.add(poke);	// NB : quand la team est pleine, il va directement dans le pc. 
 			player.sendMessage(Text.literal("§aCadeau : un " + poke.getSpecies().getName()), false);	
+			addPlayerGifted(key,player.getUuid());
+			saveGiftedPlayers();
 		}
 		else 
 			player.sendMessage(Text.literal("Le code n'existe pas"));
+		}
+		else player.sendMessage(Text.literal("Tu as deja utiliser ce code."));
 		return 1;
 	}	
 	
@@ -367,4 +382,52 @@ public class ModCommands {
 		return nature;
 	}
 	
+	// Charger les données depuis le fichier JSON
+    public static void loadGiftedPlayers() {
+        if (PLAYER_GIFT_FILE.exists()) {
+            try (FileReader reader = new FileReader(PLAYER_GIFT_FILE)) {            	
+            	
+                Map<String, List<String>> rawData = GSON.fromJson(reader, Map.class);
+                if (rawData != null) {
+                    rawData.forEach((keyword, uuidStrings) -> {
+                        List<UUID> uuids = new ArrayList<>();
+                        for (String uuidString : uuidStrings) {
+                            uuids.add(UUID.fromString(uuidString));
+                        }
+                        players_gifted.put(keyword, uuids);
+                    });
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    public static void saveGiftedPlayers() {
+        try (FileWriter writer = new FileWriter(PLAYER_GIFT_FILE)) {
+            Map<String, List<String>> rawData = new HashMap<>();
+            players_gifted.forEach((keyword, uuids) -> {
+                List<String> uuidStrings = new ArrayList<>();
+                for (UUID uuid : uuids) {
+                    uuidStrings.add(uuid.toString());
+                }
+                rawData.put(keyword, uuidStrings);
+            });
+            GSON.toJson(rawData, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+ // Ajouter un UUID à un mot-clé
+    public static void addPlayerGifted(String keyword, UUID uuid) {
+    	players_gifted.computeIfAbsent(keyword, k -> new ArrayList<>()).add(uuid);
+    }
+    
+    public static boolean containsUUID(String keyword, UUID uuid) {
+        List<UUID> uuids = players_gifted.get(keyword);
+        return uuids != null && uuids.contains(uuid);
+    }
+	
 }
+
