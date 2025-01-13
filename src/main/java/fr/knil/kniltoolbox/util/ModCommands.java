@@ -1,22 +1,38 @@
 package fr.knil.kniltoolbox.util;
 
 import com.cobblemon.mod.common.Cobblemon;
+import kotlin.Unit;
+import com.cobblemon.mod.common.CobblemonItems;
+import com.cobblemon.mod.common.api.battles.interpreter.BattleMessage;
+import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
+import com.cobblemon.mod.common.api.moves.MoveSet;
+import com.cobblemon.mod.common.api.moves.Moves;
 import com.cobblemon.mod.common.api.pokeball.PokeBalls;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
+import com.cobblemon.mod.common.api.pokemon.helditem.HeldItemManager;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
+import com.cobblemon.mod.common.battles.BattleBuilder;
+import com.cobblemon.mod.common.battles.BattleTypes;
+import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
+import com.cobblemon.mod.common.item.CobblemonItem;
+import com.cobblemon.mod.common.item.PokemonItem;
 import com.cobblemon.mod.common.pokeball.PokeBall;
 import com.cobblemon.mod.common.pokemon.Gender;
 import com.cobblemon.mod.common.pokemon.Nature;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.pokemon.Species;
+import com.cobblemon.mod.common.pokemon.helditem.BaseCobblemonHeldItemManager;
+import com.cobblemon.mod.common.pokemon.helditem.CobblemonHeldItemManager;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -36,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Vector;
 
 
 public class ModCommands {
@@ -59,7 +76,12 @@ public class ModCommands {
 	            
 	         // commande /pokelist
 	            dispatcher.register(literal("pokegiverandom").executes(ModCommands::pokegiverandom));
+	            
+	         // commande /pokelist
+	            dispatcher.register(literal("test").executes(ModCommands::test));
 	                  
+	         // commande /pokelist
+	            dispatcher.register(literal("BattleVsWild").executes(ModCommands::BattleVsWild));
 	            
 	         // commande /pokegift <key>
 	            dispatcher.register(literal("pokegift")
@@ -67,10 +89,38 @@ public class ModCommands {
 	            	        .executes(context -> pokegift(context, getString(context, "key"))))
 	            	);	              
 		 });
-	}		 
+	}		
+	
+	
+	private static int test(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+		
+		return 1;
+	}
+	
+	
+	private static int BattleVsWild(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+		
+	    Vector<PokemonBattle> challengeBattles = new Vector<>();
+		Pokemon poke = new Pokemon();
+		
+		poke.setSpecies(PokemonSpecies.INSTANCE.random());	//configuration de l'espece	
+		poke.setUuid(UUID.randomUUID()); //configuration de l'UUID				
+		PokemonEntity PE = poke.getEntity();
+		
+		ServerPlayerEntity player = context.getSource().getPlayer();
+		BattleBuilder.INSTANCE.pve(player, PE, Cobblemon.INSTANCE.getStorage().getParty(player).get(0).getUuid()).ifSuccessful(battle -> {
+            challengeBattles.add(battle); // Keep a list of challenge battles to keep track of cloned pokemon
+            return Unit.INSTANCE;
+        });
+			
+		
+		return 1;
+	}
+	
 
 	// fonction qui liste les pokemons de l'equipe du joueur
 	private static int pokelist(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+				
 		//initialisation des variables
 		ServerPlayerEntity player = context.getSource().getPlayer();	//recuperation du joueur
 		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player); //recuperation de l'equipe du joueur	
@@ -166,6 +216,7 @@ public class ModCommands {
 	}
 	
 	//chargement du fichier GIFT_FILE dans la var gift_data
+	@SuppressWarnings("unchecked")
 	private static void loadgift() {
 		if (GIFT_FILE.exists()) {	//verification que le fichier existe
             try (FileReader reader = new FileReader(GIFT_FILE)) {	
@@ -266,9 +317,21 @@ public class ModCommands {
                 		 pokegift.setOriginalTrainer((String) pokedata.get("OT"));
                 	 }                	 
                 	 if (pokedata.containsKey("Moveset")) {	//pour plus tard, essayer de set le moveset du poké
+                		 MoveSet MS = new MoveSet();
+                		 
+                		 List <String> movesetStr = (List<String>) pokedata.get("Moveset");
+                                         		 
+                		 //mettre la liste de move dans le moveset
+                		 for (String moveStr : movesetStr) {
+                			 MS.add(Moves.INSTANCE.getByName(moveStr).create());                			                 			 
+                         } 
+                		 
+                		 //rajouter le moveset au pokemon
+                		 pokegift.getMoveSet().copyFrom(MS);
                 		 
                 	 }
-                	 if (pokedata.containsKey("Held Item")) {	//pour plus tard, essayer de set l'objet tenu du poké
+                	 if (pokedata.containsKey("HeldItem")) {	//pour plus tard, essayer de set l'objet tenu du poké
+                		 pokegift.swapHeldItem(CobblemonItems.ABILITY_PATCH.getDefaultStack(), false);
                 		 
                 	 }
                 	
@@ -282,6 +345,19 @@ public class ModCommands {
         }
     }
 
+	public static ItemStack getItem(String item) {		
+		ItemStack itemStack;
+		switch (item.toUpperCase()) {
+		case "ABILITY_PATCH" -> itemStack = CobblemonItems.ABILITY_PATCH.getDefaultStack();
+		
+		
+		default -> 
+	 	throw new IllegalArgumentException("Unexpected value: " + item);
+	}
+	
+	return itemStack;
+	}
+	
 	//obtenir l'objet de type Pokeball à partir d'une chaine
 	public static PokeBall getPokeball(String ball) {		
 		PokeBall pokeball;		
@@ -382,11 +458,12 @@ public class ModCommands {
 	}
 	
 	// Charger les données depuis le fichier JSON
-    public static void loadGiftedPlayers() {
+	public static void loadGiftedPlayers() {
         if (PLAYER_GIFT_FILE.exists()) {
             try (FileReader reader = new FileReader(PLAYER_GIFT_FILE)) {            	
             	
-                Map<String, List<String>> rawData = GSON.fromJson(reader, Map.class);
+                @SuppressWarnings("unchecked")
+				Map<String, List<String>> rawData = GSON.fromJson(reader, Map.class);
                 if (rawData != null) {
                     rawData.forEach((keyword, uuidStrings) -> {
                         List<UUID> uuids = new ArrayList<>();

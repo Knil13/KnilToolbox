@@ -26,7 +26,9 @@ public class Kniltoolbox implements ModInitializer {
 		ModCommands.registerCommands();	
 		
 		//abonnement à l'event de capture de poké
-		CobblemonEvents.POKEMON_CAPTURED.subscribe(Priority.NORMAL, this::onCaptured);			
+		CobblemonEvents.POKEMON_CAPTURED.subscribe(Priority.NORMAL, this::onCaptured);	
+		
+		
         
     }      
     
