@@ -1,6 +1,8 @@
 package fr.knil.kniltoolbox.util;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.CobblemonEntities;
+
 import kotlin.Unit;
 import com.cobblemon.mod.common.CobblemonItems;
 import com.cobblemon.mod.common.api.battles.interpreter.BattleMessage;
@@ -14,6 +16,7 @@ import com.cobblemon.mod.common.api.pokemon.helditem.HeldItemManager;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
 import com.cobblemon.mod.common.battles.BattleBuilder;
+import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.battles.BattleTypes;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
@@ -36,6 +39,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.world.World;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
@@ -57,6 +61,8 @@ import java.util.Vector;
 
 public class ModCommands {
 
+	public static Vector<PokemonBattle> challengeBattles = new Vector<>();
+	
 	private static final File DATA_DIRECTORY = new File("KnilToolbox_files"); // Répertoire des fichiers
     private static final File GIFT_FILE = new File(DATA_DIRECTORY, "gift_file.json"); // Fichier des gifts 
     private static final File PLAYER_GIFT_FILE = new File(DATA_DIRECTORY, "player_gift_file.json"); // Fichier des gifts 
@@ -99,20 +105,32 @@ public class ModCommands {
 	
 	
 	private static int BattleVsWild(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-		
-	    Vector<PokemonBattle> challengeBattles = new Vector<>();
+		ServerPlayerEntity player = context.getSource().getPlayer();			   
 		Pokemon poke = new Pokemon();
+		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player);
+		World world = context.getSource().getWorld();
 		
-		poke.setSpecies(PokemonSpecies.INSTANCE.random());	//configuration de l'espece	
-		poke.setUuid(UUID.randomUUID()); //configuration de l'UUID				
-		PokemonEntity PE = poke.getEntity();
+		if(playerParty.occupied() != 0) {
 		
-		ServerPlayerEntity player = context.getSource().getPlayer();
-		BattleBuilder.INSTANCE.pve(player, PE, Cobblemon.INSTANCE.getStorage().getParty(player).get(0).getUuid()).ifSuccessful(battle -> {
+		BattleRegistry br = Cobblemon.INSTANCE.getBattleRegistry();			
+			
+		poke.setSpecies(PokemonSpecies.INSTANCE.getByName("blissey"));	//configuration de l'espece	
+		poke.setLevel(10);
+		poke.setShiny(true);
+		poke.setUuid(UUID.randomUUID()); //configuration de l'UUID	
+		PokemonEntity PE = new PokemonEntity(world,poke,CobblemonEntities.POKEMON);
+		PE.setPosition(player.getX()+2, player.getY(), player.getZ());
+		world.spawnEntity(PE);		
+		
+		BattleBuilder.INSTANCE.pve(player, 
+				PE,
+				playerParty.get(0).getUuid())
+				.ifSuccessful(battle -> {
             challengeBattles.add(battle); // Keep a list of challenge battles to keep track of cloned pokemon
             return Unit.INSTANCE;
-        });
-			
+        });	
+		}
+		else player.sendMessage(Text.literal("Tu n'as pas de pokemon"), false);
 		
 		return 1;
 	}
@@ -120,7 +138,7 @@ public class ModCommands {
 
 	// fonction qui liste les pokemons de l'equipe du joueur
 	private static int pokelist(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-				
+		
 		//initialisation des variables
 		ServerPlayerEntity player = context.getSource().getPlayer();	//recuperation du joueur
 		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player); //recuperation de l'equipe du joueur	

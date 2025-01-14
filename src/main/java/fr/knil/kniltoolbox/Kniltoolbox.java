@@ -37,14 +37,14 @@ public class Kniltoolbox implements ModInitializer {
     	ServerPlayerEntity player = pokemonCapturedEvent.getPlayer();
     	
     	//Variable contenant le pokemon capturé
-    	Pokemon capturedPoke = pokemonCapturedEvent.getPokemon();
+    	Pokemon poke = pokemonCapturedEvent.getPokemon();
     	
     	//generation d'un nombre aleatoire entre 0 et 100;
     	int randomInt = (int) (Math.random() * 101);
     	//Si le nombre est superieur à 50, le pokemon devient shiny.
     	if(randomInt>50) {
     		//changement du pokémon en shiny
-    		capturedPoke.setShiny(true);
+    		poke.setShiny(true);
     		player.sendMessage(Text.of("Bravo ! ton pokemon est devenu shiny !"), false);
     	}
 
