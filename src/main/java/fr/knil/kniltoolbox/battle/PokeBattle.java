@@ -1,39 +1,49 @@
 package fr.knil.kniltoolbox.battle;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-import javax.naming.Context;
-
-import com.cobblemon.mod.common.Cobblemon;
-import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
-import com.cobblemon.mod.common.api.battles.model.actor.ActorType;
-import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
-import com.cobblemon.mod.common.api.storage.party.PartyStore;
+import com.cobblemon.mod.common.CobblemonEntities;
 import com.cobblemon.mod.common.battles.BattleBuilder;
-import com.cobblemon.mod.common.battles.BattleFormat;
-import com.cobblemon.mod.common.battles.BattleRules;
-import com.cobblemon.mod.common.battles.BattleSide;
-import com.cobblemon.mod.common.battles.BattleTypes;
-import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 
+import kotlin.Unit;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.MutableText;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 public class PokeBattle {
 	public PokeBattle() {
 		// TODO Auto-generated constructor stub
 	}
 	
-	public PokeBattle(Context context, ServerPlayerEntity player, Pokemon poke) {
-		// TODO Auto-generated constructor stub
+	public void BattleVSWildPokemon(World world, ServerPlayerEntity player, Pokemon poke) {	
+		//	generation de l'entité et positionnement
+		PokemonEntity PE = new PokemonEntity(world,poke,CobblemonEntities.POKEMON);
+		PE.setPosition(player.getX()+2, player.getY(), player.getZ());	// à 2 bloc du joueur
+		world.spawnEntity(PE);	//spawn de l'entité dans le monde	
 		
-		
-		
-		
-		
+		//generation du combat
+		BattleBuilder.INSTANCE.pve(player, 
+				PE)
+				.ifSuccessful(battle -> {
+            return Unit.INSTANCE;
+        });	
 		
 	}
+	
+	public void BattleVSWildPokemon(World world, ServerPlayerEntity player, Pokemon poke, Vec3d pos) {
+//		generation de l'entité et positionnement
+		PokemonEntity PE = new PokemonEntity(world,poke,CobblemonEntities.POKEMON);
+		PE.setPosition(pos);	//choix de la position de spawn
+		world.spawnEntity(PE);	//spawn de l'entité dans le monde	
+		
+		//generation du combat
+		BattleBuilder.INSTANCE.pve(player, 
+				PE)
+				.ifSuccessful(battle -> {
+            return Unit.INSTANCE;
+        });	
+		
+	}
+	
+	
 }

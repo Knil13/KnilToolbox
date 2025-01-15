@@ -1,46 +1,31 @@
 package fr.knil.kniltoolbox.util;
 
 import com.cobblemon.mod.common.Cobblemon;
-import com.cobblemon.mod.common.CobblemonEntities;
-
-import kotlin.Unit;
 import com.cobblemon.mod.common.CobblemonItems;
-import com.cobblemon.mod.common.api.battles.interpreter.BattleMessage;
 import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.api.moves.MoveSet;
 import com.cobblemon.mod.common.api.moves.Moves;
 import com.cobblemon.mod.common.api.pokeball.PokeBalls;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
-import com.cobblemon.mod.common.api.pokemon.helditem.HeldItemManager;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
-import com.cobblemon.mod.common.battles.BattleBuilder;
-import com.cobblemon.mod.common.battles.BattleRegistry;
-import com.cobblemon.mod.common.battles.BattleTypes;
-import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
-import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
-import com.cobblemon.mod.common.item.CobblemonItem;
-import com.cobblemon.mod.common.item.PokemonItem;
 import com.cobblemon.mod.common.pokeball.PokeBall;
 import com.cobblemon.mod.common.pokemon.Gender;
 import com.cobblemon.mod.common.pokemon.Nature;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.pokemon.Species;
-import com.cobblemon.mod.common.pokemon.helditem.BaseCobblemonHeldItemManager;
-import com.cobblemon.mod.common.pokemon.helditem.CobblemonHeldItemManager;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import fr.knil.kniltoolbox.battle.PokeBattle;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.world.World;
-
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
 import static net.minecraft.server.command.CommandManager.argument;
@@ -105,30 +90,20 @@ public class ModCommands {
 	
 	
 	private static int BattleVsWild(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-		ServerPlayerEntity player = context.getSource().getPlayer();			   
-		Pokemon poke = new Pokemon();
+		ServerPlayerEntity player = context.getSource().getPlayer();
 		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player);
-		World world = context.getSource().getWorld();
+				
 		
-		if(playerParty.occupied() != 0) {
-		
-		BattleRegistry br = Cobblemon.INSTANCE.getBattleRegistry();			
+		if(playerParty.occupied() != 0) {	// si la team du joueur n'est pas vide
 			
-		poke.setSpecies(PokemonSpecies.INSTANCE.getByName("blissey"));	//configuration de l'espece	
-		poke.setLevel(10);
-		poke.setShiny(true);
-		poke.setUuid(UUID.randomUUID()); //configuration de l'UUID	
-		PokemonEntity PE = new PokemonEntity(world,poke,CobblemonEntities.POKEMON);
-		PE.setPosition(player.getX()+2, player.getY(), player.getZ());
-		world.spawnEntity(PE);		
+		//creation du poké à faire spawn
+		Pokemon poke = new Pokemon();
+		poke = CreatePokemon(PokemonSpecies.INSTANCE.getByName("blissey"));	//creer un leuphorie
+		poke.setLevel(5);	// met son niveau à 5	
 		
-		BattleBuilder.INSTANCE.pve(player, 
-				PE,
-				playerParty.get(0).getUuid())
-				.ifSuccessful(battle -> {
-            challengeBattles.add(battle); // Keep a list of challenge battles to keep track of cloned pokemon
-            return Unit.INSTANCE;
-        });	
+		//utilisation de PokeBattle pour utilisé sa fonction qui genere le combat (voir dans fr.knil.kniltoolbox.battle.PokeBattle)
+		PokeBattle PB = new PokeBattle();
+			PB.BattleVSWildPokemon(context.getSource().getWorld(), player, poke);		
 		}
 		else player.sendMessage(Text.literal("Tu n'as pas de pokemon"), false);
 		
