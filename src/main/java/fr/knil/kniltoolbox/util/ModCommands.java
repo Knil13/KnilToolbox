@@ -25,7 +25,9 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
 import static net.minecraft.server.command.CommandManager.argument;
@@ -71,9 +73,14 @@ public class ModCommands {
 	         // commande /pokelist
 	            dispatcher.register(literal("test").executes(ModCommands::test));
 	                  
-	         // commande /pokelist
+	         // commande /BattleVsWild
 	            dispatcher.register(literal("BattleVsWild").executes(ModCommands::BattleVsWild));
 	            
+		     // commande /BattlePvP
+		        dispatcher.register(literal("BattlePvP").then(argument("player", string())
+            	        .executes(context -> BattlePvP(context, getString(context, "player"))))
+            	);	    
+		        
 	         // commande /pokegift <key>
 	            dispatcher.register(literal("pokegift")
 	            	    .then(argument("key", string())
@@ -88,11 +95,29 @@ public class ModCommands {
 		return 1;
 	}
 	
+	private static int BattlePvP(CommandContext<ServerCommandSource> context, String playerChallenged) throws CommandSyntaxException {
+		
+		ServerPlayerEntity player1 = context.getSource().getPlayer();
+		ServerPlayerEntity player2 = context.getSource().getServer().getPlayerManager().getPlayer(playerChallenged);
+		
+		PlayerPartyStore player1Party = Cobblemon.INSTANCE.getStorage().getParty(player1);				
+		PlayerPartyStore player2Party = Cobblemon.INSTANCE.getStorage().getParty(player2);				
+		
+
+		ServerWorld worldServer = context.getSource().getWorld();
+		
+		if(player1Party.occupied() != 0 & player2Party.occupied() != 0) {			
+			PokeBattle PB = new PokeBattle();
+			PB.BattlePvP(worldServer, player1, player2);		
+		}
+		
+		return 1;
+	}
+	
 	
 	private static int BattleVsWild(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
 		ServerPlayerEntity player = context.getSource().getPlayer();
-		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player);
-				
+		PlayerPartyStore playerParty = Cobblemon.INSTANCE.getStorage().getParty(player);				
 		
 		if(playerParty.occupied() != 0) {	// si la team du joueur n'est pas vide
 			
@@ -103,7 +128,7 @@ public class ModCommands {
 		
 		//utilisation de PokeBattle pour utilisé sa fonction qui genere le combat (voir dans fr.knil.kniltoolbox.battle.PokeBattle)
 		PokeBattle PB = new PokeBattle();
-			PB.BattleVSWildPokemon(context.getSource().getWorld(), player, poke);		
+		PB.BattleVSWildPokemon(context.getSource().getWorld(), player, poke);		
 		}
 		else player.sendMessage(Text.literal("Tu n'as pas de pokemon"), false);
 		

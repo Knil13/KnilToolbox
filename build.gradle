@@ -35,6 +35,8 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation("com.cobblemon:fabric:${property("cobblemon_version")}")
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.0.0" // Vérifiez la version de Kotlin requise
+    implementation "org.jetbrains.kotlin:kotlin-reflect:2.0.0"
 }
 
 processResources {
