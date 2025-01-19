@@ -11,6 +11,7 @@ import com.cobblemon.mod.common.battles.BattleTypes;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 
+import fr.knil.kniltoolbox.util.MutablePosition;
 import kotlin.Unit;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -51,14 +52,20 @@ public class PokeBattle {
         });	
 	}
 	
-	public void BattlePvP(ServerWorld world, ServerPlayerEntity player1, ServerPlayerEntity player2) {
+	public void BattlePvP(ServerWorld world, ServerPlayerEntity player1, ServerPlayerEntity player2, MutablePosition positionChallenger, MutablePosition positionChallenged) {
 		int level = 10;
 		Set<String> rules = Set.of(BattleRules.OBTAINABLE, BattleRules.PAST, BattleRules.UNOBTAINABLE, BattleRules.TEAM_PREVIEW);
 		BattleFormat bf = new BattleFormat("cobblemon", BattleTypes.INSTANCE.getSINGLES(), rules,9,level);
 				
+		
+		//Both intra-dimensional and cross-dimensional teleportation can now be performed using Entity#teleportTo 
+		//(previously known as moveToWorld). TeleportTarget now contains the destination world and position.
+		//FabricDimensions was removed, because its only API, teleport, is effectively superseded with Entity#teleportTo.
+		
 		// teleporter les joueurs face à face
-		//player1.teleport(world, -77.5, 65, 95.5, -90, 1);	
-		//player2.teleport(world, -63.5, 65, 95.5, 90, 1);
+		player1.teleport(world, positionChallenger.getX(), positionChallenger.getY(), positionChallenger.getZ(), positionChallenger.getYaw(), positionChallenger.getPitch());	
+		player2.teleport(world, positionChallenged.getX(), positionChallenged.getY(), positionChallenged.getZ(), positionChallenged.getYaw(), positionChallenged.getPitch());	
+	
 		
 		BattleBuilder.INSTANCE
 		.pvp1v1(player1, 

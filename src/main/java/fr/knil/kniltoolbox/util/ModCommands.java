@@ -27,6 +27,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
@@ -53,24 +54,27 @@ public class ModCommands {
 	private static final File DATA_DIRECTORY = new File("KnilToolbox_files"); // Répertoire des fichiers
     private static final File GIFT_FILE = new File(DATA_DIRECTORY, "gift_file.json"); // Fichier des gifts 
     private static final File PLAYER_GIFT_FILE = new File(DATA_DIRECTORY, "player_gift_file.json"); // Fichier des gifts 
+    private static final File BATTLEPOSITION_FILE = new File(DATA_DIRECTORY, "BattlePosition.json"); // Fichier des spawns 
     
     private static final Gson GSON = new Gson();
     private static final Map<String, Pokemon> gift_data = new HashMap<>();
     private final static Map<String, List<UUID>> players_gifted = new HashMap<>();
+    private static final Map<String, MutablePosition> BattlePosition = new HashMap<>();
 
 
-	public static void registerCommands() {		
-		
+	public static void registerCommands() {			
 		loadGiftedPlayers();
+		loadBattlePosition();
+		
 		
 		 CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> { 
 	         // commande /pokelist
 	            dispatcher.register(literal("pokelist").executes(ModCommands::pokelist));
 	            
-	         // commande /pokelist
+	         // commande /pokegiverandom
 	            dispatcher.register(literal("pokegiverandom").executes(ModCommands::pokegiverandom));
 	            
-	         // commande /pokelist
+	         // commande /test
 	            dispatcher.register(literal("test").executes(ModCommands::test));
 	                  
 	         // commande /BattleVsWild
@@ -85,15 +89,78 @@ public class ModCommands {
 	            dispatcher.register(literal("pokegift")
 	            	    .then(argument("key", string())
 	            	        .executes(context -> pokegift(context, getString(context, "key"))))
-	            	);	              
+	            	);	      
+	            
+	         // commande /BattlePosition <key>
+	            dispatcher.register(literal("BattlePosition")
+	            	    .then(argument("side", string())
+	            	        .executes(context -> setBattlePosition(context, getString(context, "side"))))
+	            	);	
 		 });
 	}		
 	
 	
 	private static int test(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+			
 		
 		return 1;
 	}
+	
+	private static int setBattlePosition(CommandContext<ServerCommandSource> context, String side) throws CommandSyntaxException {
+		ServerPlayerEntity player = context.getSource().getPlayer();
+		BlockPos currentPos = player.getBlockPos();
+    
+		MutablePosition tp = new MutablePosition(currentPos.getX(), currentPos.getY(), currentPos.getZ(), player.getYaw(), player.getPitch());
+
+		BattlePosition.put(side, tp);
+    
+		// Sauvegarder les changements dans le fichier
+		saveBattlePosition();     
+    
+		return 1;
+	}
+	
+	private static void saveBattlePosition() {
+    	// Sauvegarder dans le fichier
+        try (FileWriter writer = new FileWriter(BATTLEPOSITION_FILE)) {
+            Map<String, Map<String, Object>> rawData = new HashMap<>();
+            BattlePosition.forEach((key, pos) -> {
+                Map<String, Object> coords = new HashMap<>();
+                coords.put("x", pos.getX());
+                coords.put("y", pos.getY());
+                coords.put("z", pos.getZ());
+                coords.put("yaw", pos.getYaw());
+                coords.put("pitch", pos.getPitch()); 
+                rawData.put(key, coords);
+            });
+            GSON.toJson(rawData, writer);
+        } catch (IOException e) {
+            System.err.println("Failed to save BattlePoint : " + e.getMessage());
+        }
+    }
+	
+	private static void loadBattlePosition() {
+        if (BATTLEPOSITION_FILE.exists()) {
+            try (FileReader reader = new FileReader(BATTLEPOSITION_FILE)) {
+                Type type = new TypeToken<Map<String, Map<String, Object>>>() {}.getType();
+                Map<String, Map<String, Object>> rawData = GSON.fromJson(reader, type);
+
+                // Convertir les données en BlockPos
+                rawData.forEach((name, coords) -> {
+                    if (coords.containsKey("x") && coords.containsKey("y") && coords.containsKey("z")) {
+                    	int x = (int) coords.get("x");
+                        int y = (int) coords.get("y");
+                        int z = (int) coords.get("z");
+                        float yaw = (float) coords.get("yaw");
+                        float pitch = (float) coords.get("pitch");
+                        BattlePosition.put(name, new MutablePosition(x, y, z, yaw, pitch));
+                    }
+                });
+            } catch (IOException e) {
+                System.err.println("Failed to load spawn points: " + e.getMessage());
+            }
+        }
+    }
 	
 	private static int BattlePvP(CommandContext<ServerCommandSource> context, String playerChallenged) throws CommandSyntaxException {
 		
@@ -107,9 +174,16 @@ public class ModCommands {
 		ServerWorld worldServer = context.getSource().getWorld();
 		
 		if(player1Party.occupied() != 0 & player2Party.occupied() != 0) {			
-			PokeBattle PB = new PokeBattle();
-			PB.BattlePvP(worldServer, player1, player2);		
+			if(BattlePosition.containsKey("challenger") & BattlePosition.containsKey("challenged")) {
+				PokeBattle PB = new PokeBattle();
+				PB.BattlePvP(worldServer, player1, player2, BattlePosition.get("challenger"), BattlePosition.get("challenged"));
+			}
+			else
+			{
+				player1.sendMessage(Text.literal("un ou plusieurs point de tp n'est pas initialisé"), false);
+			}
 		}
+		else player1.sendMessage(Text.literal("l'un des joueur n'a pas de pokemon"), false);
 		
 		return 1;
 	}
