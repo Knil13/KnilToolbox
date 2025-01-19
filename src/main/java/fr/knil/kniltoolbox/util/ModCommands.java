@@ -198,7 +198,7 @@ public class ModCommands {
 		//creation du poké à faire spawn
 		Pokemon poke = new Pokemon();
 		poke = CreatePokemon(PokemonSpecies.INSTANCE.getByName("blissey"));	//creer un leuphorie
-		poke.setLevel(5);	// met son niveau à 5	
+		poke.setLevel(5);	// met son niveau à 5	S
 		
 		//utilisation de PokeBattle pour utilisé sa fonction qui genere le combat (voir dans fr.knil.kniltoolbox.battle.PokeBattle)
 		PokeBattle PB = new PokeBattle();
