@@ -9,7 +9,11 @@ import com.cobblemon.mod.common.api.pokeball.PokeBalls;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
+import com.cobblemon.mod.common.api.storage.PokemonStore;
+import com.cobblemon.mod.common.api.storage.PokemonStoreManager;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
+import com.cobblemon.mod.common.api.storage.pc.PCPosition;
+import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import com.cobblemon.mod.common.pokeball.PokeBall;
 import com.cobblemon.mod.common.pokemon.Gender;
 import com.cobblemon.mod.common.pokemon.Nature;
@@ -101,8 +105,15 @@ public class ModCommands {
 	
 	
 	private static int test(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-			
-		
+		ServerPlayerEntity player = context.getSource().getPlayer();
+		PokemonStoreManager PSM = Cobblemon.INSTANCE.getStorage();
+		PCStore PC = PSM.getPC(player);
+		int i=0;
+		PC.forEach(poke -> {			
+			System.out.println("pokemon "+ i + " : "+ poke.getSpecies());
+			i++;
+		});
+				
 		return 1;
 	}
 	
