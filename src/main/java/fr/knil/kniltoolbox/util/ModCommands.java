@@ -108,10 +108,12 @@ public class ModCommands {
 		ServerPlayerEntity player = context.getSource().getPlayer();
 		PokemonStoreManager PSM = Cobblemon.INSTANCE.getStorage();
 		PCStore PC = PSM.getPC(player);
-		int i=0;
-		PC.forEach(poke -> {			
-			System.out.println("pokemon "+ i + " : "+ poke.getSpecies());
-			i++;
+		
+		PC.forEach(poke -> {
+			
+			System.out.println("pokemon "+ poke.getSpecies());
+			
+			
 		});
 				
 		return 1;
