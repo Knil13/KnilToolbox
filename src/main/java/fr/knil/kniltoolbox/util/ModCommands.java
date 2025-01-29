@@ -9,7 +9,6 @@ import com.cobblemon.mod.common.api.pokeball.PokeBalls;
 import com.cobblemon.mod.common.api.pokemon.Natures;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.api.pokemon.stats.Stats;
-import com.cobblemon.mod.common.api.storage.party.PartyPosition;
 import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
 import com.cobblemon.mod.common.api.storage.pc.PCPosition;
 import com.cobblemon.mod.common.api.storage.pc.PCStore;
@@ -27,11 +26,14 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import fr.knil.kniltoolbox.battle.PokeBattle;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.packet.s2c.play.ParticleS2CPacket;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
@@ -65,9 +67,22 @@ public class ModCommands {
     private static final Map<String, Pokemon> gift_data = new HashMap<>();
     private final static Map<String, List<UUID>> players_gifted = new HashMap<>();
     private static final Map<String, MutablePosition> BattlePosition = new HashMap<>();
-    private static final Map<UUID, Map<String, List<UUID>>> partiesSaved = new HashMap<>();
-        
-    private static UUID save_uuid;
+    private static final Map<UUID, Map<String, List<PokemonTeamSlot>>> partiesSaved = new HashMap<>();
+    
+    private static final int BORDER_LENGTH = 20; // Longueur du mur
+    private static final double PARTICLE_SPACING = 0.5; // Espacement entre les particules
+    
+ // Classe pour représenter un slot d'équipe
+    static class PokemonTeamSlot {       
+        String species;
+        UUID uuid;
+
+        PokemonTeamSlot(String species, UUID uuid) {
+            this.species = species;
+            this.uuid = uuid;
+        }
+    }
+    
 
 	public static void registerCommands() {			
 		loadGiftedPlayers();
@@ -82,8 +97,7 @@ public class ModCommands {
 	         // commande /pokegiverandom
 	            dispatcher.register(literal("pokegiverandom").executes(ModCommands::pokegiverandom));
 	            
-	         // commande /test
-	            dispatcher.register(literal("test").executes(ModCommands::test));
+	         
 	                  
 	         // commande /BattleVsWild
 	            dispatcher.register(literal("BattleVsWild").executes(ModCommands::BattleVsWild));
@@ -91,13 +105,7 @@ public class ModCommands {
 		     // commande /BattlePvP
 		        dispatcher.register(literal("BattlePvP").then(argument("player", string())
             	        .executes(context -> BattlePvP(context, getString(context, "player"))))
-            	);	   
-		        
-		     // commande /savePoke <key>
-	            dispatcher.register(literal("savePoke")
-	            	    .then(argument("slot", string())
-	            	        .executes(context -> savePoke(context, getString(context, "slot"))))
-	            	);	
+            	);	
 		        
 	         // commande /pokegift <key>
 	            dispatcher.register(literal("pokegift")
@@ -128,45 +136,72 @@ public class ModCommands {
 	            	        .executes(context -> delParty(context, getString(context, "name"))))
 	            	);
 	            
+	         // commande /partyList
+	            dispatcher.register(literal("test").executes(ModCommands::test));
+	             
 	            
 	         // commande /partyList
 	            dispatcher.register(literal("partyList").executes(ModCommands::partyList));
 		 });
-	}		
+	}	
+	
+	private static int test(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+		ServerPlayerEntity player = context.getSource().getPlayer();
+		
+		
+		
+		return 1;
+	}
 	
 	private static int saveParty(CommandContext<ServerCommandSource> context, String name) throws CommandSyntaxException {
 	    ServerPlayerEntity player = context.getSource().getPlayer();
 	    UUID playerId = player.getUuid();
 	    PlayerPartyStore Party = Cobblemon.INSTANCE.getStorage().getParty(player);
 
-	    // Créer la liste des UUID des Pokémon de l'équipe actuelle
-	    List<UUID> playerParty = new ArrayList<>();
-	    Party.forEach(poke -> {
-	        if (poke != null) playerParty.add(poke.getUuid());
-	    });
+	    // Créer la liste de Pokemon
+	    List<PokemonTeamSlot> playerParty = new ArrayList<>();
+	    for (int i=0;i<Party.size();i++)
+	    {
+	        Pokemon poke = Party.get(i);
+	        if (poke != null) {
+	    		playerParty.add(new PokemonTeamSlot(poke.getSpecies().toString(),poke.getUuid()));
+	        }
+	        else
+	        {
+	        	playerParty.add(new PokemonTeamSlot("aucun",null));
+	        }
+	    }
+	    
 
 	    // Vérifier si une map existe déjà pour ce joueur
-	    Map<String, List<UUID>> playerData = partiesSaved.getOrDefault(playerId, new HashMap<>());
+	    Map<String, List<PokemonTeamSlot>> playerData = partiesSaved.getOrDefault(playerId, new HashMap<>());
 
 	    // Remplacer ou ajouter l'équipe sauvegardée avec ce nom
 	    playerData.put(name, playerParty);
 	    partiesSaved.put(playerId, playerData);
 
 	    // Sauvegarder dans le fichier JSON
-	    Gson gson = new GsonBuilder().setPrettyPrinting().create(); // Pretty print pour mieux lire le JSON
-	    try (FileWriter writer = new FileWriter(PARTIES_SAVED_FILE)) {
-	        gson.toJson(partiesSaved, writer);
-	        System.out.println("Données sauvegardées dans " + PARTIES_SAVED_FILE);
-	    } catch (IOException e) {
-	        System.err.println("Erreur lors de la sauvegarde : " + e.getMessage());
-	    }
+	    savePartyInJson();
 
 	    // Retourner un message au joueur
 	    player.sendMessage(Text.literal("Team " + name + " sauvegardée !"), false);
 	    return 1;
 	}
 
+	private static void savePartyInJson() {
+	    if (PARTIES_SAVED_FILE.exists()) {
+	    	Gson gson = new GsonBuilder().setPrettyPrinting().create(); // Pretty print pour mieux lire le JSON
+		    try (FileWriter writer = new FileWriter(PARTIES_SAVED_FILE)) {
+		        gson.toJson(partiesSaved, writer);
+		        System.out.println("Données sauvegardées dans " + PARTIES_SAVED_FILE);
+		    } catch (IOException e) {
+		        System.err.println("Erreur lors de la sauvegarde : " + e.getMessage());
+		    }
+	    } else {
+	        System.out.println("Aucun fichier d'équipes trouvé. Création d'un nouveau fichier.");
+	    }
 	
+}
 	
 
 	private static int loadParty(CommandContext<ServerCommandSource> context, String name) throws CommandSyntaxException {
@@ -176,47 +211,74 @@ public class ModCommands {
 		PCStore PC = Cobblemon.INSTANCE.getStorage().getPC(player);
 		
 		if(name != null) {		
-		List <Pokemon> PlayerParty = new ArrayList<Pokemon>();
-		Party.forEach(poke -> PlayerParty.add(poke));
+			List <Pokemon> PlayerParty = new ArrayList<Pokemon>();
+			Party.forEach(poke -> PlayerParty.add(poke));		
+			//partiesSaved.get(playerId).get(name).forEach(uuid -> System.out.println(uuid));		
 		
-		//partiesSaved.get(playerId).get(name).forEach(uuid -> System.out.println(uuid));
-		
-		if (partiesSaved.containsKey(playerId)) {
-			if (partiesSaved.get(playerId).containsKey(name)) {
+			if (partiesSaved.containsKey(playerId)) {
+				if (partiesSaved.get(playerId).containsKey(name)) {		
 				
-				for(int i = 0; i < partiesSaved.get(playerId).get(name).size(); i++) {
-					UUID pokeUuid = partiesSaved.get(playerId).get(name).get(i);
-					
-					if (isInParty(Party,pokeUuid)) {
-						//echanger les 2 pokemon (party.swap)
-						Party.swap(i, getPositionInParty(Party,pokeUuid));					
+					for(int i = 0; i < partiesSaved.get(playerId).get(name).size(); i++) {
+						UUID pokeUuid = partiesSaved.get(playerId).get(name).get(i).uuid;
+						String specieString = partiesSaved.get(playerId).get(name).get(i).species;						
+									
+						if (specieString != "aucun") {						
+							
+							if(isInParty(Party, pokeUuid)) { //checké si le pokemon est dans la team
+								//echanger les 2 pokemon
+								int pos = getPositionInParty(Party, pokeUuid);
+								System.out.println(Party.get(i).getSpecies()+"(slot "+i+") <=> "+specieString + "(slot "+pos+")");
+								if (i != pos) Party.swap(i, pos);
+							}
+							else if (isInPC(PC, pokeUuid))//checké si le pokemon est dans le PC
+							{
+								PCPosition pos = GetPositionInPC(player, pokeUuid);
+								switchIntoPC(player, i, pos);
+							}
+							else {
+								player.sendMessage(Text.literal("Vous n'avez plus le pokemon "+specieString), false);
+								Pokemon poke = Party.get(i);
+								if (poke != null) {
+									System.out.println("chargement d'un poké inexistant. Pokemon "+poke.getSpecies()+" envoyé dans le pc");								
+									Party.remove(poke);
+									PC.add(poke);
+								}
+								else System.out.println("chargement de slot vide sur un slot vide. rien ne se passe");
+							}
+						}
+						else {
+							Pokemon poke = Party.get(i);
+							if (poke != null) {
+								System.out.println("chargement de slot vide. Pokemon "+poke.getSpecies()+"envoyé dans le pc");								
+								Party.remove(poke);
+								PC.add(poke);
+							}
+							else System.out.println("chargement de slot vide sur un slot vide. rien ne se passe");
+							
+						}					
+						
 					}
-					//rechercher dans le pc
-					else if (isInPC(PC, pokeUuid)){
-						//echanger poké de l'equipe avec le poké du pc						
-						switchIntoPC(player, i, GetPositionInPC(player, pokeUuid));
-					}
-					else player.sendMessage(Text.literal("Vous ne possedez plus le pokemon"), false);
-				}	
+					player.sendMessage(Text.literal("team "+name+" chargée !"), false);
+				}
+				else player.sendMessage(Text.literal("Vous n'avez pas de team " + name + " sauvegardée."), false);
 			}
-			else player.sendMessage(Text.literal("Vous n'avez pas de team " + name + " sauvegardée."), false);
+			else player.sendMessage(Text.literal("Vous n'avez pas de team sauvegardée."), false);	
 		}
-		else player.sendMessage(Text.literal("Vous n'avez pas de team sauvegardée."), false);
-				
-		}
-		else player.sendMessage(Text.literal("il faut rentrer un nom de team"), false);
+		else player.sendMessage(Text.literal("Vous n'avez pas entrez de nom de team"), false);
+		
 		return 1;
 	}
 	
 	private static int getPositionInParty(PlayerPartyStore party, UUID uuid) {
-	    int i=0;
-		for (Pokemon poke : party) {			
-	        if (poke.getUuid().equals(uuid)) {
+	    
+		for (int i=0;i<party.size();i++) {	
+			Pokemon poke = party.get(i);
+			
+	        if (poke != null && poke.getUuid().equals(uuid)) {
 	            return i; // Retourner immédiatement si l'UUID est trouvé
 	        }
-	        else i++;
 	    }
-	    return i; // Retourner false si aucun match
+	    return 0;
 	}
 	
 	private static boolean isInParty(PlayerPartyStore party, UUID uuid) {
@@ -234,11 +296,11 @@ public class ModCommands {
 			for(int j = 0; j < 30; j++) {
 				//System.out.println("check box "+i+" slot "+j);
 				if (PC.get(new PCPosition(i, j)) != null) {		
-					System.out.println("pokemon in box "+i+" slot "+j);
-					System.out.println(PC.get(new PCPosition(i, j)).getUuid()+" = "+uuid+" ,");
+					//System.out.println("pokemon in box "+i+" slot "+j);
+					//System.out.println(PC.get(new PCPosition(i, j)).getUuid()+" = "+uuid+" ,");
 					if (PC.get(new PCPosition(i, j)).getUuid().equals(uuid)) {						
 						
-						System.out.println("pokemon trouvé dans le pc !");
+						System.out.println("pokemon trouvé dans le pc in box "+i+" slot "+j);
 						return true;
 					}
 				}
@@ -246,82 +308,9 @@ public class ModCommands {
 		}				
 		return false;
 	}
-
-	
-	private static void loadPartyFromJson() {
-	    Gson gson = new Gson();
-	    try (FileReader reader = new FileReader(PARTIES_SAVED_FILE)) {
-	        // Charger les données dans partiesSaved
-	        Type type = new TypeToken<Map<UUID, Map<String, List<UUID>>>>() {}.getType();
-	        Map<UUID, Map<String, List<UUID>>> loadedData = gson.fromJson(reader, type);
-
-	        // Remplacer les anciennes données par les nouvelles
-	        partiesSaved.clear();
-	        partiesSaved.putAll(loadedData);
-	        System.out.println("Données chargées : " + partiesSaved);
-	    } catch (IOException e) {
-	        System.err.println("Erreur lors du chargement : " + e.getMessage());
-	    }
-	}
-	
-	private static int delParty(CommandContext<ServerCommandSource> context, String name) throws CommandSyntaxException {
-	
-		return 1;
-	}
-	
-	private static int partyList(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-		
-		return 1;
-	}
-	
-	
-	
-	
-	private static int test(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
-		ServerPlayerEntity player = context.getSource().getPlayer();
-		PlayerPartyStore Party = Cobblemon.INSTANCE.getStorage().getParty(player);
-		
-		//switchIntoPC(player, 0, new PCPosition(0, 0));
-		if (save_uuid != null ) {
-			if(Party.get(save_uuid) != null)
-			{
-				for(int i = 0; i <= 5; i++) {
-					if(Party.get(i) != null && Party.get(i).getUuid() == save_uuid) {
-						player.sendMessage(Text.literal("le pokemon recherché est dans l'équipe à l'emplacement :" + (i+1)), false);
-						return 1;
-					}
-				}
-			}
-			else
-			{			
-				PCPosition pos = GetPositionInPC(player, save_uuid);
-				if(pos != null)	player.sendMessage(Text.literal("le pokemon recherché est dans le pc dans la boite "+ (pos.getBox()+1) + " à l'emplacement " + (pos.getSlot()+1)), false);				
-				else player.sendMessage(Text.literal("le pokemon n'existe pas !"), false);
-			}
-		}
-		else player.sendMessage(Text.literal("aucun pokémon n'a été save"), false);
-		
-		return 1;
-	}
-	
-	
-	private static int savePoke(CommandContext<ServerCommandSource> context, String slot) throws CommandSyntaxException {
-		ServerPlayerEntity player = context.getSource().getPlayer();		
-		
-		try {
-		    save_uuid = Cobblemon.INSTANCE.getStorage().getParty(player).get(Integer.parseInt(slot)-1).getUuid();
-		    player.sendMessage(Text.literal("Le pokemon à l'emplacement "+ slot + "(" + Cobblemon.INSTANCE.getStorage().getParty(player).get(Integer.parseInt(slot)-1).getSpecies().toString() + ") a été save !"), false);
-		    
-		} catch (NumberFormatException e) {
-		    System.out.println("Erreur : La chaîne n'est pas un entier valide.");
-		    player.sendMessage(Text.literal("aucun pokémon n'a été save"), false);
-		}		
-		
-		return 1;
-	}
 	
 	private static PCPosition GetPositionInPC(ServerPlayerEntity player, UUID uuid) {
-				
+		
 		//check dans le PC
 		PCStore PC = Cobblemon.INSTANCE.getStorage().getPC(player);
 		int box=0;
@@ -348,28 +337,89 @@ public class ModCommands {
 		PlayerPartyStore Party = Cobblemon.INSTANCE.getStorage().getParty(player);
 		PCStore PC = Cobblemon.INSTANCE.getStorage().getPC(player);
 		
-		if(Party.get(slot) != null) {
-			Pokemon pokemonSlot = Party.get(slot);
-		
+		if(Party.get(slot) != null) { //s'il y a un pokemon sur le slot
+			
+			Pokemon pokemonSlot = Party.get(slot);		
 			Party.set(slot, PC.get(pos));
 			PC.set(pos, pokemonSlot);
-		
-			player.sendMessage(Text.literal(Party.get(slot).getSpecies() + " <=> "+ PC.get(pos).getSpecies()), false);
-			/*player.sendMessage(Text.literal("Pokemon de l'equipe " 
-					+ PC.get(pos).getSpecies() 
-					+ "echangé avec le pokemon " 
-					+ Party.get(slot).getSpecies()
-					+ " du pc."
-					), false);
-			*/
+			System.out.println(Party.get(slot).getSpecies() + "(team slot "+ slot +") <=> "+ PC.get(pos).getSpecies()+" (PC slot "+pos.getSlot()+")");				
 		}
-		else {
-			Party.set(slot, PC.get(pos));
-			player.sendMessage(Text.literal(PC.get(pos).getSpecies() + " => Team (slot " + slot +")"), false);
-		}
+		else { //si le slot est vide
+			Pokemon poke = PC.get(pos);
+			PC.remove(poke);
+			Party.set(slot, poke);
+			System.out.println(poke.getSpecies() + " => Team (slot " + slot +")");
+		}		
+	}
+	
+	private static void loadPartyFromJson() {
+		    if (PARTIES_SAVED_FILE.exists()) {
+		        Gson gson = new Gson();
+		        try (FileReader reader = new FileReader(PARTIES_SAVED_FILE)) {
+		            Type type = new TypeToken<Map<UUID, Map<String, List<PokemonTeamSlot>>>>() {}.getType();
+		            Map<UUID, Map<String, List<PokemonTeamSlot>>> loadedData = gson.fromJson(reader, type);
+
+		            if (loadedData != null) {
+		                partiesSaved.putAll(loadedData);
+		                System.out.println("Les équipes ont été chargées !");
+		            }
+		        } catch (IOException e) {
+		            System.err.println("Erreur lors du chargement des équipes : " + e.getMessage());
+		        }
+		    } else {
+		        System.out.println("Aucun fichier d'équipes trouvé. Création d'un nouveau fichier.");
+		    }
 		
 	}
 	
+	private static int delParty(CommandContext<ServerCommandSource> context, String name) throws CommandSyntaxException {
+		ServerPlayerEntity player = context.getSource().getPlayer();
+        UUID playerId = player.getUuid();
+		
+		if(name != null) {		
+			if (partiesSaved.containsKey(playerId)) {
+				if (partiesSaved.get(playerId).containsKey(name)) {
+					partiesSaved.get(playerId).remove(name);	
+					savePartyInJson();
+				}
+				else player.sendMessage(Text.literal("Vous n'avez pas de team " + name + " sauvegardée."), false);
+			}
+			else player.sendMessage(Text.literal("Vous n'avez pas de team sauvegardée."), false);	
+		}
+		else player.sendMessage(Text.literal("Vous n'avez pas entrez de nom de team"), false);
+		
+		return 1;
+	}
+	
+	private static int partyList(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+		ServerPlayerEntity player = context.getSource().getPlayer();
+        UUID playerId = player.getUuid();
+		
+		if (partiesSaved.containsKey(playerId)) {
+			Map<String, List<PokemonTeamSlot>> playerTeams = partiesSaved.get(playerId);
+			
+			playerTeams.forEach((teamName, teamSlots) -> {
+				StringBuilder teamDisplay = new StringBuilder(teamName + " : ");
+	            
+	            // Ajouter les noms des Pokémon de l'équipe
+	            for (PokemonTeamSlot slot : teamSlots) {
+	                if (slot != null && slot.species != "aucun") {
+	                    teamDisplay.append(slot.species).append(", ");
+	                }
+	            }
+	            
+	            // Supprimer la dernière virgule et l'espace, puis afficher
+	            if (teamDisplay.length() > 2) {
+	                teamDisplay.setLength(teamDisplay.length() - 2);
+	            }
+	            player.sendMessage(Text.literal(teamDisplay.toString()), false);
+			});
+			
+		}
+		else player.sendMessage(Text.literal("Vous n'avez pas de team sauvegardée."), false);			
+		
+		return 1;
+	}
 	
 	private static int setBattlePosition(CommandContext<ServerCommandSource> context, String side) throws CommandSyntaxException {
 		ServerPlayerEntity player = context.getSource().getPlayer();
