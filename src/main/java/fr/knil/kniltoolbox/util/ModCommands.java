@@ -26,14 +26,11 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import fr.knil.kniltoolbox.battle.PokeBattle;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.ParticleS2CPacket;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
@@ -68,9 +65,6 @@ public class ModCommands {
     private final static Map<String, List<UUID>> players_gifted = new HashMap<>();
     private static final Map<String, MutablePosition> BattlePosition = new HashMap<>();
     private static final Map<UUID, Map<String, List<PokemonTeamSlot>>> partiesSaved = new HashMap<>();
-    
-    private static final int BORDER_LENGTH = 20; // Longueur du mur
-    private static final double PARTICLE_SPACING = 0.5; // Espacement entre les particules
     
  // Classe pour représenter un slot d'équipe
     static class PokemonTeamSlot {       
